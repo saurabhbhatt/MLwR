@@ -17,7 +17,8 @@ ui <- dashboardPage(title = "Machine Learning with R",
                     # --------------- #
                     sidebar = dashboardSidebar(
                       sidebarMenu(
-                        menuItem("Data", tabName = "dashboard", icon = icon("dashboard")),
+                        menuItem("Project", tabName = "tab_project", icon = icon("dashboard")),
+                        menuItem("Data", tabName = "tab_data", icon = icon("dashboard")),
                         menuItem("Exploratory Data Analysis", tabName = "widgets", icon = icon("th")),
                         menuItem("Feature Engineering", tabName = "widgets", icon = icon("th")),
                         menuItem("Building Models", tabName = "build_models", icon = icon("cogs")),
@@ -30,25 +31,49 @@ ui <- dashboardPage(title = "Machine Learning with R",
                     # ------------ #
                     body = dashboardBody(
                       
-                      # Tab: Dashboard
+                      
                       tabItems(
-                        tabItem(tabName = "dashboard",
+                        # Tab >> Project
+                        tabItem(tabName = "tab_project",
                                 fluidRow(
-                                  box(width = 12, dataTableOutput(outputId = "mydata"))
-                                )
-                        ),
-                        # Tab: Building Models
-                        tabItem(tabName = "build_models",
+                                  tabBox(width = 12, title = "Project",
+                                         tabPanel(title = "Select"),
+                                         tabPanel(title = "Create New"),
+                                         tabPanel(title = "Delete")
+                                         )
+                                  )
+                          
+                        ), 
+                        
+                        # Tab: Dashboard
+                        tabItem(tabName = "tab_data",
                                 fluidRow(
                                   tabBox(width = 12,
-                                    title = "Building Models",
-                                    # The id lets us use input$tabset1 on the server to find the current tab
-                                    id = "tabset1",
-                                    tabPanel("Task", "First tab content"),
-                                    tabPanel("Learner", "Tab content 2")
-                                  )
-                                )
+                                         title = "Data",
+                                         id = "tabset1",
+                                         tabPanel("Upload", 
+                                                  fluidRow(column(width = 8, offset = 2,
+                                                                  fileInput(inputId = "file1", label = "Upload Training data", 
+                                                                            accept = c("text/csv", ".csv"),width = "100%")
+                                                                  ))),
+                                         
+                                         tabPanel("Summary", "Tab content 2"),
+                                         tabPanel("Preprocessing", "Tab content 2"))
                         )
+                      ),
+                      
+                      # Tab: Building Models
+                      tabItem(tabName = "build_models",
+                              fluidRow(
+                                tabBox(width = 12,
+                                       title = "Building Models",
+                                       # The id lets us use input$tabset1 on the server to find the current tab
+                                       id = "tabset2",
+                                       tabPanel("Task", "F"),
+                                       tabPanel("Learner", "Tab content 2")
+                                )
+                              )
+                      )
                       
                     ))
 )
