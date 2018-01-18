@@ -5,7 +5,7 @@ library(shiny)
 library(shinydashboard)
 
 # Updating Options
-options(shiny.maxRequestSize=30*1024^2)
+options(shiny.maxRequestSize=120*1024^2)  # Current Upload size = 120 MB. Default = 5 MB
 
 # Define UI for application
 ui <- dashboardPage(title = "Machine Learning with R", 
@@ -13,7 +13,11 @@ ui <- dashboardPage(title = "Machine Learning with R",
                     # -------------- #
                     # Header Content #
                     # -------------- #
-                    header = dashboardHeader(title = "MLwR"), 
+                    header = dashboardHeader(title = "MLwR",
+                                             
+                                             # Inserting Dropdown menu
+                                             dropdownMenuOutput(outputId = "project_status_menu")
+                                             ), 
                     
                     # --------------- #
                     # Sidebar Content #
@@ -47,7 +51,16 @@ ui <- dashboardPage(title = "Machine Learning with R",
                                 fluidRow(
                                   tabBox(width = 12, title = "Project",
                                          tabPanel(title = "Select"),
-                                         tabPanel(title = "Create New"),
+                                         tabPanel(title = "Create New",
+                                                  fluidRow(
+                                                    column(width = 6, offset = 3,
+                                                           textInput(inputId = "project_name", label = "Project Name:", width = "100%"),
+                                                           selectInput(inputId = "project_source", 
+                                                                       label = "Project Source:", 
+                                                                       choices = c("Kaggle", "Analytics Vidhya", "HackerEarth", "Fractal Analytics"), 
+                                                                       width = "100%"),
+                                                           actionButton(inputId = "project_actionbutton", label = "Create Project", width = "100%"))
+                                                  )),
                                          tabPanel(title = "Delete")
                                          )
                                   )
@@ -89,6 +102,13 @@ ui <- dashboardPage(title = "Machine Learning with R",
 
 # Define server logic required to draw a histogram
 server <- function(input, output) {
+  
+  # Upadting Current Projct status
+  output$project_status_menu <- renderMenu({
+    dropdownMenu(type = "messages",
+                 messageItem(from = "Current Project", message = input$project_name),
+                 messageItem(from = "Project Source", message = input$project_source))
+  })
   
   output$mydata <- renderDataTable({
     airquality
