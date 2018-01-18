@@ -4,6 +4,9 @@
 library(shiny)
 library(shinydashboard)
 
+# Updating Options
+options(shiny.maxRequestSize=30*1024^2)
+
 # Define UI for application
 ui <- dashboardPage(title = "Machine Learning with R", 
                     
@@ -30,6 +33,12 @@ ui <- dashboardPage(title = "Machine Learning with R",
                     # Body Content #
                     # ------------ #
                     body = dashboardBody(
+                      
+                      # Adding CSS to the page
+                      tags$head(
+                        tags$link(href='http://fonts.googleapis.com/css?family=Roboto:300', rel='stylesheet', type='text/css'),
+                        tags$style("body { font-family: 'Roboto', sans-serif;}")
+                      ),
                       
                       
                       tabItems(
