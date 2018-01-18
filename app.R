@@ -50,7 +50,19 @@ ui <- dashboardPage(title = "Machine Learning with R",
                         tabItem(tabName = "tab_project",
                                 fluidRow(
                                   tabBox(width = 12, title = "Project",
-                                         tabPanel(title = "Select"),
+                                         tabPanel(title = "Select",
+                                                  fluidRow(
+                                                    column(width = 6,
+                                                           selectInput(inputId = "select_project_source", 
+                                                                       label = "Project Source:", 
+                                                                       choices = c("Kaggle", "Analytics Vidhya", "HackerEarth", "Fractal Analytics"), 
+                                                                       width = "100%")
+                                                           ),
+                                                    
+                                                    column(6, "sdsdsd")
+                                                  )
+                                                  ),
+                                         
                                          tabPanel(title = "Create New",
                                                   fluidRow(
                                                     column(width = 6, offset = 3,
