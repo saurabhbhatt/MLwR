@@ -13,18 +13,18 @@ options(shiny.maxRequestSize=120*1024^2)  # Current Upload size = 120 MB. Defaul
 # Define UI for application
 ui <- dashboardPage(title = "Machine Learning with R", 
                     
-                    # -------------- #
+                    ##################
                     # Header Content #
-                    # -------------- #
+                    ##################
                     header = dashboardHeader(title = "MLwR",
                                              
                                              # Inserting Dropdown menu
                                              dropdownMenuOutput(outputId = "project_status_menu")
                     ), 
                     
-                    # --------------- #
+                    ###################
                     # Sidebar Content #
-                    # --------------- #
+                    ###################
                     sidebar = dashboardSidebar(
                       sidebarMenu(
                         menuItem("Projects", tabName = "tab_project", icon = icon("cubes")),
@@ -36,15 +36,15 @@ ui <- dashboardPage(title = "Machine Learning with R",
                       )
                     ), 
                     
-                    # ------------ #
+                    ################
                     # Body Content #
-                    # ------------ #
+                    ################
                     body = dashboardBody(
                       
                       # Adding CSS to the page
                       tags$head(
                         tags$link(href='http://fonts.googleapis.com/css?family=Roboto:300', rel='stylesheet', type='text/css'),
-                        tags$style("body, h4 { font-family: 'Roboto', sans-serif;}")
+                        tags$style("body, h3, h4 { font-family: 'Roboto', sans-serif;}")
                       ),
                       
                       
@@ -63,7 +63,8 @@ ui <- dashboardPage(title = "Machine Learning with R",
                                                            htmlOutput(outputId = "sel_project_list")
                                                     ),
                                                     
-                                                    column(5,offset = 1, "fsdf")
+                                                    column(6, 
+                                                           wellPanel(htmlOutput(outputId = "project_select_wellpanel")))
                                                   )
                                          ),
                                          
@@ -76,7 +77,7 @@ ui <- dashboardPage(title = "Machine Learning with R",
                                                                        choices = c("Kaggle", "Analytics Vidhya", "HackerEarth", "Fractal Analytics"), 
                                                                        width = "100%"),
                                                            textInput(inputId = "project_name", label = "Project Name:", width = "100%"),
-                                                           textAreaInput(inputId = "project_desctiotion", label = "Project Description:", width = "100%"),
+                                                           textAreaInput(inputId = "project_description", label = "Project Description:", width = "100%"),
                                                            actionButton(inputId = "createproject_button", label = "Create Project", width = "100%"))
                                                   )),
                                          
@@ -128,15 +129,81 @@ ui <- dashboardPage(title = "Machine Learning with R",
 # Define server logic required to draw a histogram
 server <- function(input, output) {
   
-  # Creating Reactive values
+  # ======================================= #
+  # Creating Reactive values to the project #
+  # ======================================= #
   project_info <- reactiveValues(project_path = "~/Projects", 
                                  current_project_name = "No Project Selected!!", 
                                  current_project_source = NULL,
                                  current_project_source_path = NULL,
                                  current_project_path = NULL, 
-                                 current_project_train_data = NULL)
+                                 current_project_train_data = NULL,
+                                 select_project_source = NULL,
+                                 select_project_name = NULL)
   
-  # Creating Project folders
+  # ==================================================== #
+  # ================ HEADER UPDATION =================== #
+  # ==================================================== #
+  # Upadting Current Projct status
+  output$project_status_menu <- renderMenu({
+    dropdownMenu(type = "messages", icon = icon("info-circle"),
+                 messageItem(from = "Current Project", message = project_info$current_project_name, icon = icon("cube")),
+                 messageItem(from = "Project Source", message = project_info$current_project_source))
+  })
+  
+  
+  # =================================================== #
+  # ================ Tab = Projects =================== #
+  # =================================================== #
+  # --------------------------------------------------- #
+  # --------------- Sub_Tab = Select ------------------ #
+  # --------------------------------------------------- #
+  select_project_list <- reactive({
+    source_path <- paste(project_info$project_path, input$select_project_source, sep = "/")
+    project_list <- list.files(source_path)
+    
+    Num_projects <- length(project_list)
+    
+    return(list(project_count = Num_projects,
+                project_list = project_list,
+                path = source_path))
+    
+  })
+  
+  
+  output$sel_project_list <- renderUI({
+    # Getting information from reactive function
+    source_project_list <- select_project_list()
+    count <- source_project_list$project_count
+    project_list <- source_project_list$project_list
+    
+    # Updating the sel_project_list
+    if(count>0) {
+      div(selectInput(inputId = "selectproject_name", label = "Select Project", choices = project_list, width = "100%"),
+          actionButton(inputId = "selectproject_button", label = "Select Project", width = "100%"))
+    } else {
+      div("No projects found!!")
+    }
+  })
+  
+  output$project_select_wellpanel <- renderUI({
+    source_project_list <- select_project_list()
+    count <- source_project_list$project_count
+    path = source_project_list$path
+    
+    if(count==0) {
+      h4("No projects found!!")
+    } else {
+      # Getting Description file
+      desc <- readLines(paste0(path, "/", input$selectproject_name, "/Description.txt"))
+      
+      div(h4(input$selectproject_name),
+          tags$p(desc))
+    }
+    
+  })
+  
+  # Creating Project folders information #
   observe({
     if(!dir.exists(project_info$project_path)) {
       dir.create(project_info$project_path)
@@ -146,12 +213,7 @@ server <- function(input, output) {
     }
   })
   
-  # Upadting Current Projct status
-  output$project_status_menu <- renderMenu({
-    dropdownMenu(type = "messages",
-                 messageItem(from = "Current Project", message = project_info$current_project_name, icon = icon("cube")),
-                 messageItem(from = "Project Source", message = project_info$current_project_source))
-  })
+  
   
   
   # Creating Project
@@ -182,6 +244,10 @@ server <- function(input, output) {
     if(!dir.exists(project_info$current_project_path)) {
       dir.create(project_info$current_project_path)
       dir.create(paste0(project_info$current_project_path, "/Data"))
+      
+      # Writing Description to text file
+      write(x = input$project_description, file = paste0(project_info$current_project_path, "/Description.txt"))
+      
       showNotification(paste(project_info$current_project_name, "Project created"), type = "message")
     } else {
       showNotification("Can't create. Project is already Created!", type = "error")
@@ -194,24 +260,7 @@ server <- function(input, output) {
   })
   
   
-  output$sel_project_list <- renderUI({
-    
-    # Checking list of directory
-    source_path <- paste(project_info$project_path, input$select_project_source, sep = "/")
-    
-    project_list <- list.files(source_path)
-    
-    if(length(project_list)>0) {
-      div(selectInput(inputId = "selectproject_name", label = "Select Project", choices = project_list, width = "100%"),
-          actionButton(inputId = "selectproject_button", label = "Select Project", width = "100%"))
-    } else {
-      div("No projects found!!")
-    }
-    
-    
-    
-    
-  })
+  
   
   
   
