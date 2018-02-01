@@ -3,12 +3,24 @@
 # Importing Libraries
 library(shiny)
 library(shinydashboard)
+library(DT)
+library(mlr)
+library(shinyFiles)
+library(dplyr)
+library(data.table)
 
 # Loading External files
 source("functions.R")
 
+# Building Project_Meta file
+if(!file.exists("~/MLwR_project.csv")) {
+  proj_file <- data.frame(Project_Name = NA, Source = NA, Path = NA, Date_Created = NA)
+  proj_file <- proj_file[-1, ]
+  write.csv(proj_file, file = "~/MLwR_project.csv", row.names = F)
+}
+
 # Updating Options
-options(shiny.maxRequestSize=120*1024^2)  # Current Upload size = 120 MB. Default = 5 MB
+options(shiny.maxRequestSize=100*1024^2)  # Current Upload size = 120 MB. Default = 5 MB
 
 # Define UI for application
 ui <- dashboardPage(title = "Machine Learning with R", 
@@ -20,7 +32,7 @@ ui <- dashboardPage(title = "Machine Learning with R",
                                              
                                              # Inserting Dropdown menu
                                              dropdownMenuOutput(outputId = "project_status_menu")
-                    ), 
+                    ),  # End of Header
                     
                     ###################
                     # Sidebar Content #
@@ -52,25 +64,20 @@ ui <- dashboardPage(title = "Machine Learning with R",
                         # Tab >> Project
                         tabItem(tabName = "tab_project",
                                 fluidRow(
-                                  tabBox(width = 12, title = "Project",
+                                  tabBox(width = 12, title = "Projects",
                                          tabPanel(title = "Select",
                                                   fluidRow(
-                                                    column(width = 6,
-                                                           selectInput(inputId = "select_project_source", 
-                                                                       label = "Project Source:", 
-                                                                       choices = c("Kaggle", "Analytics Vidhya", "HackerEarth", "Fractal Analytics"), 
-                                                                       width = "100%"),
-                                                           htmlOutput(outputId = "sel_project_list")
-                                                    ),
-                                                    
-                                                    column(6, 
-                                                           wellPanel(htmlOutput(outputId = "project_select_wellpanel")))
+                                                    column(6, dataTableOutput(outputId = "projects_select_projectTable", width = "100%")),
+                                                    column(6, wellPanel(htmlOutput(outputId = "project_select_wellpanel")))
                                                   )
                                          ),
                                          
                                          tabPanel(title = "Create New",
                                                   fluidRow(
                                                     column(width = 6, offset = 3,
+                                                           shiny_Dir_Button(id = "project_folder_select", 
+                                                                            label = "Choose Folder", 
+                                                                            title = "Please select a folder"),
                                                            
                                                            selectInput(inputId = "project_source", 
                                                                        label = "Project Source:", 
@@ -94,18 +101,51 @@ ui <- dashboardPage(title = "Machine Learning with R",
                                          title = "Data",
                                          id = "tabset1",
                                          tabPanel("Upload", 
-                                                  fluidRow(column(width = 6, offset = 3,
+                                                  fluidRow(column(width = 8, offset = 2,
                                                                   fileInput(inputId = "file1", label = "Upload Training data (Max upto 100 MB)", 
                                                                             placeholder = "Upload only .csv files",
-                                                                            accept = c("text/csv", ".csv"),width = "100%"),
+                                                                            accept = c("text/csv", ".csv"),width = "100%")),
+                                                           
+                                                           column(12, 
+                                                                  tags$hr(),
+                                                                  DT::dataTableOutput(outputId = "see_data"))
                                                                   
-                                                                  textInput(inputId = "train_data_description", 
-                                                                                label = "Description", width = "100%"),
                                                                   
-                                                                  actionButton(inputId = "uploaddata_button", label = "Upload Data", width = "100%")
-                                                  ))),
+                                                                  # textInput(inputId = "train_data_description", 
+                                                                  #           label = "Description", width = "100%"),
+                                                                  # 
+                                                                  # actionButton(inputId = "uploaddata_button", label = "Upload Data", width = "100%")
+                                                  )),
                                          
-                                         tabPanel("Summary", "Tab content 2"),
+                                         # Tab: Data / Summary #
+                                         tabPanel("Summary", 
+                                                  textOutput("mydata"),
+                                                  fluidRow(column(12, dataTableOutput(outputId = "data_summary")))),
+                                         
+                                         tabPanel("Visualization", 
+                                                  fluidRow(column(6, 
+                                                                  selectInput(inputId = "data_viz_inp_dim", 
+                                                                              label = "Select Dimension", 
+                                                                              choices = c("Univariate Analysis", "Bivariate Analysis"),
+                                                                              width = "100%")),
+                                                           column(6, 
+                                                                  # Using conditional Panel for Univariate
+                                                                  conditionalPanel(condition = "input.data_viz_inp_dim == 'Univariate Analysis'",
+                                                                                   selectInput(inputId = "data_viz_inp_vartyp1",
+                                                                                               label = "Select Variable Type", 
+                                                                                               choices = c("Numerical", "Factor"), 
+                                                                                               width = "100%")),
+                                                                  
+                                                                  # Using conditional Panel for Bivariate
+                                                                  conditionalPanel(condition = "input.data_viz_inp_dim == 'Bivariate Analysis'",
+                                                                                   selectInput(inputId = "data_viz_inp_vartyp2",
+                                                                                               label = "Select Variable Type", 
+                                                                                               choices = c("Numerical + Numerical", "Numerical + Factor", "Factor + Factor"), 
+                                                                                               width = "100%"))
+                                                           )
+                                                  )),
+                                         
+                                         # Tab: Data / Preprocessing #
                                          tabPanel("Preprocessing", "Tab content 3"))
                                 )
                         ),
@@ -126,20 +166,27 @@ ui <- dashboardPage(title = "Machine Learning with R",
                       ))
 )
 
-# Define server logic required to draw a histogram
-server <- function(input, output) {
+# ############################################################################ #
+# ####################### Server Functionality ############################### #
+# ############################################################################ #
+server <- function(input, output, session) {
   
   # ======================================= #
   # Creating Reactive values to the project #
   # ======================================= #
-  project_info <- reactiveValues(project_path = "~/Projects", 
-                                 current_project_name = "No Project Selected!!", 
-                                 current_project_source = NULL,
-                                 current_project_source_path = NULL,
-                                 current_project_path = NULL, 
-                                 current_project_train_data = NULL,
-                                 select_project_source = NULL,
-                                 select_project_name = NULL)
+  project_info <- reactiveValues(select_project_path = NULL, 
+                                 select_project_name = "Project not found!!", 
+                                 select_project_source = "Source Not found!!",
+                                 select_project_train_data = NULL)
+  
+  # ============================ #
+  # Getting Project Related File #
+  # ============================ # 
+  file_project_info <- reactiveFileReader(intervalMillis = 1000, 
+                                  session = session, 
+                                  filePath = "~/MLwR_project.csv", 
+                                  readFunc = read.csv)
+  
   
   # ==================================================== #
   # ================ HEADER UPDATION =================== #
@@ -147,8 +194,8 @@ server <- function(input, output) {
   # Upadting Current Projct status
   output$project_status_menu <- renderMenu({
     dropdownMenu(type = "messages", icon = icon("info-circle"),
-                 messageItem(from = "Current Project", message = project_info$current_project_name, icon = icon("cube")),
-                 messageItem(from = "Project Source", message = project_info$current_project_source))
+                 messageItem(from = "Current Project", message = project_info$select_project_name, icon = icon("cube")),
+                 messageItem(from = "Project Source", message = project_info$select_project_source))
   })
   
   
@@ -158,117 +205,122 @@ server <- function(input, output) {
   # --------------------------------------------------- #
   # --------------- Sub_Tab = Select ------------------ #
   # --------------------------------------------------- #
-  select_project_list <- reactive({
-    source_path <- paste(project_info$project_path, input$select_project_source, sep = "/")
-    project_list <- list.files(source_path)
-    
-    Num_projects <- length(project_list)
-    
-    return(list(project_count = Num_projects,
-                project_list = project_list,
-                path = source_path))
-    
-  })
+  output$projects_select_projectTable <- DT::renderDataTable({
+    x <- file_project_info()
+    x <- x %>% select(Project_Name, Source)
+    x
+  },  selection = "single")
   
-  
-  output$sel_project_list <- renderUI({
-    # Getting information from reactive function
-    source_project_list <- select_project_list()
-    count <- source_project_list$project_count
-    project_list <- source_project_list$project_list
+  react_select_project <- reactive({
+    x <- file_project_info()
     
-    # Updating the sel_project_list
-    if(count>0) {
-      div(selectInput(inputId = "selectproject_name", label = "Select Project", choices = project_list, width = "100%"),
-          actionButton(inputId = "selectproject_button", label = "Select Project", width = "100%"))
+    if(!is.null(input$projects_select_projectTable_rows_selected)) {
+      x <- x %>% slice(input$projects_select_projectTable_rows_selected)
+      
+      # Updating Reactive Values
+      project_info$select_project_path <- x$Path
+      project_info$select_project_name <- x$Project_Name
+      project_info$select_project_source <- x$Source
     } else {
-      div("No projects found!!")
+      project_info$select_project_path <- NULL
+      project_info$select_project_name <- "Project not found!!"
+      project_info$select_project_source <- "Source not found!!"
     }
+    
   })
   
   output$project_select_wellpanel <- renderUI({
-    source_project_list <- select_project_list()
-    count <- source_project_list$project_count
-    path = source_project_list$path
+    # Triggeering React select Project
+    react_select_project()
     
-    if(count==0) {
-      h4("No projects found!!")
-    } else {
-      # Getting Description file
-      desc <- readLines(paste0(path, "/", input$selectproject_name, "/Description.txt"))
-      
-      div(h4(input$selectproject_name),
-          tags$p(desc))
-    }
-    
+    div(h4(project_info$select_project_name),
+          tags$hr(),
+          tags$p(project_info$select_project_source))
   })
   
-  # Creating Project folders information #
-  observe({
-    if(!dir.exists(project_info$project_path)) {
-      dir.create(project_info$project_path)
-      showNotification("Project folder is created", type = "message")
-    } else {
-      showNotification("Found Project folder", type = "warning")
-    }
-  })
-  
-  
-  
+  # ------------------------------------------------------- #
+  # --------------- Sub_Tab = Create New ------------------ #
+  # ------------------------------------------------------- #
+  shinyDirChoose(input = input, 
+                 id = 'project_folder_select', 
+                 root=c(root='~'))
   
   # Creating Project
   observeEvent(input$createproject_button, {
-    # ================================== #
-    # Updating Project Reactive Variable #
-    # ================================== #
-    project_info$current_project_name <- input$project_name
-    project_info$current_project_source <- input$project_source
     
-    # ================================= #
-    # Checking / Creating source folder #
-    # ================================= #
-    project_info$current_project_source_path <- paste0(project_info$project_path, "/", project_info$current_project_source)
+    # Initiating Decision Parameters
+    create <- T
     
-    if(!dir.exists(project_info$current_project_source_path)) {
-      dir.create(project_info$current_project_source_path)
-      showNotification("Source folder is created", type = "message")
-    } else {
-      showNotification("Source folder found", type = "warning")
+    # =================== #
+    # Getting Folder Path #
+    # =================== #
+    project_folder <- unlist(input$project_folder_select$path)[-1]
+    project_folder <- paste0("~/", paste(project_folder, collapse = "/"))
+    
+    # =================== #
+    # Getting Folder Name #
+    # =================== #
+    project_folder_path <- paste0(project_folder, "/", input$project_name)
+    
+    # checking if folder exist
+    if(dir.exists(project_folder_path)) {
+      showNotification("Can't create. Project is already Created!", type = "error")
+      create <- F
     }
     
     # ======================= #
     # Creating Project Folder #
     # ======================= #
-    project_info$current_project_path <- paste0(project_info$current_project_source_path, "/", project_info$current_project_name)
-    
-    if(!dir.exists(project_info$current_project_path)) {
-      dir.create(project_info$current_project_path)
-      dir.create(paste0(project_info$current_project_path, "/Data"))
-      
+    if(create) {
+      # Generating Files and Folders 
+      dir.create(project_folder_path)  # Creating Project Folder
+      dir.create(paste0(project_folder_path, "/Data"))  # Creating Data Folder within project folder
+
       # Writing Description to text file
-      write(x = input$project_description, file = paste0(project_info$current_project_path, "/Description.txt"))
+      write(x = input$project_description, file = paste0(project_folder_path, "/Description.txt"))
       
+      # Storing data into project meta file
+      create_proj_info <- file_project_info()
+      create_proj_info <- rbind(create_proj_info, 
+                                data.frame(Project_Name = input$project_name, 
+                                           Source = input$project_source, 
+                                           Path = project_folder_path, 
+                                           Date_Created = Sys.Date()))
+      write.csv(create_proj_info, "~/MLwR_project.csv", row.names = F)
+      
+      
+      # Showing Notification for Creating Folder
       showNotification(paste(project_info$current_project_name, "Project created"), type = "message")
-    } else {
-      showNotification("Can't create. Project is already Created!", type = "error")
     }
     
   })
   
-  observeEvent(input$uploaddata_button, {
-    
-  })
+  # =============================================== #
+  # ================ Tab = Data =================== #
+  # =============================================== #
+  # --------------------------------------------------- #
+  # --------------- Sub_Tab = Upload ------------------ #
+  # --------------------------------------------------- #
+  output$see_data <- DT::renderDataTable({
+    df <- read.csv(input$file1$datapath)
+    project_info$select_project_train_data <- df
+    fwrite(df, paste0(project_info$select_project_path, "/Data/train_data.csv"), row.names = F)
+    df
+  }, options = list(scrollX = TRUE), selection = "none")
+  
+  
+  
+  output$data_summary <- renderDataTable({
+    summarizeColumns(project_info$select_project_train_data)
+  }, options = list(scrollX = TRUE), selection = "multiple")
   
   
   
   
   
-  
-  
-  
-  
-  output$mydata <- renderDataTable({
-    airquality
+  output$mydata <- renderText({
+    print(input$data_summary_rows_selected)
+    # print("hiii")
   })
 }
 
