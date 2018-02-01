@@ -119,7 +119,6 @@ ui <- dashboardPage(title = "Machine Learning with R",
                                          
                                          # Tab: Data / Summary #
                                          tabPanel("Summary", 
-                                                  textOutput("mydata"),
                                                   fluidRow(column(12, dataTableOutput(outputId = "data_summary")))),
                                          
                                          tabPanel("Visualization", 
@@ -314,14 +313,6 @@ server <- function(input, output, session) {
     summarizeColumns(project_info$select_project_train_data)
   }, options = list(scrollX = TRUE), selection = "multiple")
   
-  
-  
-  
-  
-  output$mydata <- renderText({
-    print(input$data_summary_rows_selected)
-    # print("hiii")
-  })
 }
 
 # Run the application 
