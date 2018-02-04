@@ -119,7 +119,9 @@ ui <- dashboardPage(title = "Machine Learning with R",
                                          
                                          # Tab: Data / Summary #
                                          tabPanel("Summary", 
-                                                  fluidRow(column(12, dataTableOutput(outputId = "data_summary")))),
+                                                  fluidRow(column(3, valueBoxOutput(outputId = "summary_totalrows",width = 12)),
+                                                           column(3, valueBoxOutput(outputId = "summary_totalcols", width = 12)),
+                                                           column(12, hr(),dataTableOutput(outputId = "data_summary")))),
                                          
                                          tabPanel("Visualization", 
                                                   fluidRow(column(6, 
@@ -301,13 +303,39 @@ server <- function(input, output, session) {
   # --------------- Sub_Tab = Upload ------------------ #
   # --------------------------------------------------- #
   output$see_data <- DT::renderDataTable({
-    df <- read.csv(input$file1$datapath)
+    if(is.null(input$file1)) {
+      
+      train_file_path <- paste0(project_info$select_project_path, "/Data/train_data.csv")
+      
+      # Checking if train data exist
+      if(file.exists(train_file_path)){
+        df <- fread(train_file_path)
+      } else {
+        df <- data.frame(X = "No Data Found!! Please upload the file.")
+      }
+      
+    } else {
+      df <- read.csv(input$file1$datapath)
+      fwrite(df, file = paste0(project_info$select_project_path, "/Data/train_data.csv"), row.names = F)
+    }
+    
     project_info$select_project_train_data <- df
-    fwrite(df, paste0(project_info$select_project_path, "/Data/train_data.csv"), row.names = F)
+    
     df
   }, options = list(scrollX = TRUE), selection = "none")
   
+  # --------------------------------------------------- #
+  # --------------- Sub_Tab = Summary ------------------ #
+  # --------------------------------------------------- #
+  output$summary_totalrows <- renderValueBox({
+    total_rows <- nrow( project_info$select_project_train_data)
+    valueBox(value = total_rows, subtitle = "Total Rows", icon = icon("list"))
+  })
   
+  output$summary_totalcols <- renderValueBox({
+    total_cols <- ncol( project_info$select_project_train_data)
+    valueBox(value = total_cols, subtitle = "Total Columns", icon = icon("sitemap"))
+  })
   
   output$data_summary <- renderDataTable({
     summarizeColumns(project_info$select_project_train_data)
