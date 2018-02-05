@@ -119,8 +119,11 @@ ui <- dashboardPage(title = "Machine Learning with R",
                                          
                                          # Tab: Data / Summary #
                                          tabPanel("Summary", 
-                                                  fluidRow(column(3, valueBoxOutput(outputId = "summary_totalrows",width = 12)),
-                                                           column(3, valueBoxOutput(outputId = "summary_totalcols", width = 12)),
+                                                  fluidRow(column(12, 
+                                                                  valueBoxOutput(outputId = "summary_totalrows",width = 3),
+                                                                  valueBoxOutput(outputId = "summary_totalcols",width = 3),
+                                                                  valueBoxOutput(outputId = "summary_totalfact",width = 3),
+                                                                  valueBoxOutput(outputId = "summary_totalnum", width = 3)),
                                                            column(12, hr(),dataTableOutput(outputId = "data_summary")))),
                                          
                                          tabPanel("Visualization", 
@@ -158,7 +161,23 @@ ui <- dashboardPage(title = "Machine Learning with R",
                                          title = "Building Models",
                                          # The id lets us use input$tabset1 on the server to find the current tab
                                          id = "tabset2",
-                                         tabPanel("Task", "F"),
+                                         
+                                         # ================= #
+                                         # Building Task Tab #
+                                         # ================= #
+                                         tabPanel("Task", 
+                                                  fluidRow(column(width = 6, 
+                                                                  textInput(inputId = "task_name", 
+                                                                            label = "Enter Task Name", 
+                                                                            width = "100%"),
+                                                                  htmlOutput(outputId = "task_yvar_out")),
+                                                           
+                                                           column(width = 6,
+                                                                  DT::dataTableOutput(outputId = "task_list")))),
+                                         
+                                         # =================== #
+                                         # Building Trrain Tab #
+                                         # =================== #
                                          tabPanel("Learner", "Tab content 2")
                                   )
                                 )
@@ -178,7 +197,13 @@ server <- function(input, output, session) {
   project_info <- reactiveValues(select_project_path = NULL, 
                                  select_project_name = "Project not found!!", 
                                  select_project_source = "Source Not found!!",
-                                 select_project_train_data = NULL)
+                                 select_project_train_data = NULL,
+                                 select_project_train_data_summary = NULL)
+  
+  # ============================= #
+  # Model Related Reactive values #
+  # ============================= #
+  mlr_models <- reactiveValues(task = list(train_task = NA, test_task = NA))
   
   # ============================ #
   # Getting Project Related File #
@@ -329,17 +354,42 @@ server <- function(input, output, session) {
   # --------------------------------------------------- #
   output$summary_totalrows <- renderValueBox({
     total_rows <- nrow( project_info$select_project_train_data)
-    valueBox(value = total_rows, subtitle = "Total Rows", icon = icon("list"))
+    valueBox(value = total_rows, subtitle = "Total Rows", icon = icon("list"), color = "blue")
   })
   
   output$summary_totalcols <- renderValueBox({
     total_cols <- ncol( project_info$select_project_train_data)
-    valueBox(value = total_cols, subtitle = "Total Columns", icon = icon("sitemap"))
+    valueBox(value = total_cols, subtitle = "Total Columns", icon = icon("sitemap"), color = "blue")
+  })
+  
+  output$summary_totalfact <- renderValueBox({
+    total_fact <- length(which(project_info$select_project_train_data_summary$type %in% c("character", "factor")))
+    valueBox(value = total_fact, subtitle = "Total Factor Variables", icon = icon("quote-right"), color = "blue")
+  })
+  
+  output$summary_totalnum <- renderValueBox({
+    total_num <- length(which(project_info$select_project_train_data_summary$type %in% c("integer", "numeric")))
+    valueBox(value = total_num, subtitle = "Total Numerical Variables", icon = icon("percent"), color = "blue")
   })
   
   output$data_summary <- renderDataTable({
-    summarizeColumns(project_info$select_project_train_data)
-  }, options = list(scrollX = TRUE), selection = "multiple")
+    project_info$select_project_train_data_summary <- summarizeColumns(project_info$select_project_train_data)
+    project_info$select_project_train_data_summary
+  }, options = list(scrollX = TRUE), selection = "single")
+  
+  # ========================================================== #
+  # ================ Tab = Building Models =================== #
+  # ========================================================== #
+  # --------------------------------------------------- #
+  # --------------- Sub_Tab = Task ------------------ #
+  # --------------------------------------------------- #
+  output$task_yvar_out <- renderUI({
+    div(selectInput(inputId = "task_yvar",label = "Select Output / Response Variable",
+                choices = project_info$select_project_train_data_summary$name, 
+                width = "100%"),
+    actionButton(inputId = "task_createmodel_button", label = "Create Model", width = "100%"))
+    
+  })
   
 }
 
