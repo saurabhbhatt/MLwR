@@ -1,26 +1,34 @@
-# Project MLwR
+# ======================================= #
+# Project: MLwR (Machine Learning with R) #
+# This Project will help on EDA, Model Building etc. for all the competitions. 
+# ======================================= #
 
-# Importing Libraries
-library(shiny)
-library(shinydashboard)
-library(DT)
-library(mlr)
-library(shinyFiles)
-library(dplyr)
-library(data.table)
-
-# Loading External files
+# ====================== #
+# Loading External files #
+# ====================== #
 source("functions.R")
 
-# Building Project_Meta file
-if(!file.exists("~/MLwR_project.csv")) {
-  proj_file <- data.frame(Project_Name = NA, Source = NA, Path = NA, Date_Created = NA)
-  proj_file <- proj_file[-1, ]
-  write.csv(proj_file, file = "~/MLwR_project.csv", row.names = F)
-}
+# ================ #
+# Loading Packages #
+# ================ #
+check_package("shiny")
+check_package("shinydashboard")
+check_package("shinyjs")
+check_package("data.table")
+check_package("DT")
+check_package("mlr")
+check_package("shinyFiles")
+check_package("dplyr")
+check_package("digest")
+
+# ======================== #
+# Initial Files Generation #
+# ======================== #
+MLwR_start()
 
 # Updating Options
-options(shiny.maxRequestSize=100*1024^2)  # Current Upload size = 120 MB. Default = 5 MB
+max_size <- 200
+options(shiny.maxRequestSize=max_size*1024^2)  # Current Upload size = 120 MB. Default = 5 MB
 
 # Define UI for application
 ui <- dashboardPage(title = "Machine Learning with R", 
@@ -41,23 +49,25 @@ ui <- dashboardPage(title = "Machine Learning with R",
                       sidebarMenu(
                         menuItem("Projects", tabName = "tab_project", icon = icon("cubes")),
                         menuItem("Data", tabName = "tab_data", icon = icon("database")),
-                        menuItem("Exploratory Data Analysis", tabName = "widgets", icon = icon("bar-chart")),
-                        menuItem("Feature Engineering", tabName = "widgets", icon = icon("th")),
+                        menuItem("Exploratory Data Analysis", tabName = "eda", icon = icon("bar-chart")),
+                        # menuItem("Feature Engineering", tabName = "widgets", icon = icon("th")),
                         menuItem("Building Models", tabName = "build_models", icon = icon("cogs")),
                         menuItem("Report", tabName = "widgets", icon = icon("file-text-o"))
                       )
-                    ), 
+                    ),   # End of SideBar
                     
                     ################
                     # Body Content #
                     ################
                     body = dashboardBody(
-                      
+                     
                       # Adding CSS to the page
                       tags$head(
                         tags$link(href='http://fonts.googleapis.com/css?family=Roboto:300', rel='stylesheet', type='text/css'),
                         tags$style("body, h3, h4 { font-family: 'Roboto', sans-serif;}")
                       ),
+                      
+                      # tagList(useShinyjs(), loading.screens),
                       
                       
                       tabItems(
@@ -92,7 +102,7 @@ ui <- dashboardPage(title = "Machine Learning with R",
                                   )
                                 )
                                 
-                        ), 
+                        ),   # End of Project Tab
                         
                         # Tab: Dashboard
                         tabItem(tabName = "tab_data",
@@ -102,19 +112,19 @@ ui <- dashboardPage(title = "Machine Learning with R",
                                          id = "tabset1",
                                          tabPanel("Upload", 
                                                   fluidRow(column(width = 8, offset = 2,
-                                                                  fileInput(inputId = "file1", label = "Upload Training data (Max upto 100 MB)", 
+                                                                  fileInput(inputId = "file1", label = paste("Upload Training data (Max upto", max_size, "MB)"), 
                                                                             placeholder = "Upload only .csv files",
                                                                             accept = c("text/csv", ".csv"),width = "100%")),
                                                            
                                                            column(12, 
                                                                   tags$hr(),
                                                                   DT::dataTableOutput(outputId = "see_data"))
-                                                                  
-                                                                  
-                                                                  # textInput(inputId = "train_data_description", 
-                                                                  #           label = "Description", width = "100%"),
-                                                                  # 
-                                                                  # actionButton(inputId = "uploaddata_button", label = "Upload Data", width = "100%")
+                                                           
+                                                           
+                                                           # textInput(inputId = "train_data_description", 
+                                                           #           label = "Description", width = "100%"),
+                                                           # 
+                                                           # actionButton(inputId = "uploaddata_button", label = "Upload Data", width = "100%")
                                                   )),
                                          
                                          # Tab: Data / Summary #
@@ -124,7 +134,17 @@ ui <- dashboardPage(title = "Machine Learning with R",
                                                                   valueBoxOutput(outputId = "summary_totalcols",width = 3),
                                                                   valueBoxOutput(outputId = "summary_totalfact",width = 3),
                                                                   valueBoxOutput(outputId = "summary_totalnum", width = 3)),
-                                                           column(12, hr(),dataTableOutput(outputId = "data_summary")))),
+                                                           column(12, hr(),dataTableOutput(outputId = "data_summary"))))
+                                         
+                                  )
+                                )
+                        ),  # End of Data Tab
+                        
+                        
+                        # Tab: EDA
+                        tabItem(tabName = "eda",
+                                fluidRow(
+                                  tabBox(title = "Exploratory Data Analysis", width = 12,
                                          
                                          tabPanel("Visualization", 
                                                   fluidRow(column(6, 
@@ -150,9 +170,10 @@ ui <- dashboardPage(title = "Machine Learning with R",
                                                   )),
                                          
                                          # Tab: Data / Preprocessing #
-                                         tabPanel("Preprocessing", "Tab content 3"))
-                                )
-                        ),
+                                         tabPanel("Preprocessing", "Tab content 3")
+                                  ))),  # End of EDA Tab
+                        
+                        
                         
                         # Tab: Building Models
                         tabItem(tabName = "build_models",
@@ -184,7 +205,7 @@ ui <- dashboardPage(title = "Machine Learning with R",
                         )
                         
                       ))
-)
+)  # End of UI 
 
 # ############################################################################ #
 # ####################### Server Functionality ############################### #
@@ -209,9 +230,9 @@ server <- function(input, output, session) {
   # Getting Project Related File #
   # ============================ # 
   file_project_info <- reactiveFileReader(intervalMillis = 1000, 
-                                  session = session, 
-                                  filePath = "~/MLwR_project.csv", 
-                                  readFunc = read.csv)
+                                          session = session, 
+                                          filePath = "~/MLwR_project.csv", 
+                                          readFunc = read.csv)
   
   
   # ==================================================== #
@@ -260,8 +281,8 @@ server <- function(input, output, session) {
     react_select_project()
     
     div(h4(project_info$select_project_name),
-          tags$hr(),
-          tags$p(project_info$select_project_source))
+        tags$hr(),
+        tags$p(project_info$select_project_source))
   })
   
   # ------------------------------------------------------- #
@@ -301,7 +322,7 @@ server <- function(input, output, session) {
       # Generating Files and Folders 
       dir.create(project_folder_path)  # Creating Project Folder
       dir.create(paste0(project_folder_path, "/Data"))  # Creating Data Folder within project folder
-
+      
       # Writing Description to text file
       write(x = input$project_description, file = paste0(project_folder_path, "/Description.txt"))
       
@@ -313,9 +334,8 @@ server <- function(input, output, session) {
                                            Path = project_folder_path, 
                                            Date_Created = Sys.Date()))
       write.csv(create_proj_info, "~/MLwR_project.csv", row.names = F)
-      
-      
-      # Showing Notification for Creating Folder
+    
+        # Showing Notification for Creating Folder
       showNotification(paste(project_info$current_project_name, "Project created"), type = "message")
     }
     
@@ -385,9 +405,41 @@ server <- function(input, output, session) {
   # --------------------------------------------------- #
   output$task_yvar_out <- renderUI({
     div(selectInput(inputId = "task_yvar",label = "Select Output / Response Variable",
-                choices = project_info$select_project_train_data_summary$name, 
-                width = "100%"),
-    actionButton(inputId = "task_createmodel_button", label = "Create Model", width = "100%"))
+                    choices = project_info$select_project_train_data_summary$name, 
+                    width = "100%"),
+        textAreaInput(inputId = "task_description", label = "Task Description", width = "100%"),
+        actionButton(inputId = "task_createmodel_button", label = "Create Task", width = "100%"))
+    
+  })
+  
+  output$task_list <- renderDataTable({
+    mtcars
+  })
+  
+  # Creating Task button click
+  observeEvent(input$task_createmodel_button, {
+    task_dir <- paste0(project_info$select_project_path, "/Task")
+    
+    
+    # Creating Task Directory and task tracker
+    if(!dir.exists(task_dir)) {
+      dir.create(task_dir)
+      
+      # Creating Task Tracker
+      x <- data.frame(ID = NA, Task_Name = NA, Response = NA, Description = NA, Date_Created = NA)
+      x <- x[-1, ]
+      write.csv(x, file = paste0(task_dir, "/task_list.csv"), row.names = F)
+    }
+    
+    # Crating Task
+    # Getting class of output variable
+    output_class <- project_info$select_project_train_data_summary
+    output_class <- output_class$type[which(output_class$name==input$task_yvar)]
+    if(output_class=="factor" | output_class=="character") {
+      task <- makeClassifTask(data = project_info$select_project_train_data, target = input$task_yvar)
+      save()
+    }
+    
     
   })
   

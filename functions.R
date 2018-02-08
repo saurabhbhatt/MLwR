@@ -1,3 +1,53 @@
+# ============================= #
+# Checking and Loading packages #
+# ============================= #
+check_package <- function(pkg_name = "dplyr") {
+  if(!require(pkg_name, character.only = T)) {
+    install.packages(pkg_name, dependencies = T)
+    require(pkg_name, character.only = T)
+  }
+}
+
+# ============================= #
+# Once shiny app start it is necessary to check the basic criterion
+# ============================= #
+MLwR_start <- function() {
+  # Building Project_Meta file
+  if(!file.exists("~/MLwR_project.csv")) {
+    proj_file <- data.frame(Project_Name = NA, Source = NA, Path = NA, Date_Created = NA)
+    proj_file <- proj_file[-1, ]
+    write.csv(proj_file, file = "~/MLwR_project.csv", row.names = F)
+  }
+}
+
+# ============================= #
+# FUnction for creating Project Folder
+# ============================= #
+create_project_folder <- function(project_path = NULL, project_name = NULL, Desc = NULL) {
+  # Creating Folders
+  dir.create(project_path)
+  dir.create(paste0(project_path,"/Data"))
+  dir.create(paste0(project_path,"/Tasks"))
+  dir.create(paste0(project_path,"/Models"))
+  dir.create(paste0(project_path,"/Output"))
+  
+  # Creating Files
+  if(!is.null(Desc)) {
+    # Create Desc fike
+  }
+  
+  # Crating Task FIles
+  
+  
+  
+  
+}
+
+
+
+# ============================= #
+# UI Related Functions #
+# ============================= #
 # Creating a directory Button
 shiny_Dir_Button <- function (id, label, title, buttonType = "default", class = "form-control action-button shiny-bound-input") {
   tagList(singleton(tags$head(tags$script(src = "sF/shinyFiles.js"), 
@@ -43,3 +93,8 @@ textAreaInput <- function(inputId, label, value = "", width = NULL, height = NUL
       )
   )
 }
+
+
+
+
+
