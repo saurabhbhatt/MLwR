@@ -7,6 +7,7 @@
 # Loading External files #
 # ====================== #
 source("functions.R")
+source("directoryInput.R")
 
 # ================ #
 # Loading Packages #
@@ -60,7 +61,7 @@ ui <- dashboardPage(title = "Machine Learning with R",
                     # Body Content #
                     ################
                     body = dashboardBody(
-                     
+                      
                       # Adding CSS to the page
                       tags$head(
                         tags$link(href='http://fonts.googleapis.com/css?family=Roboto:300', rel='stylesheet', type='text/css'),
@@ -75,30 +76,29 @@ ui <- dashboardPage(title = "Machine Learning with R",
                         tabItem(tabName = "tab_project",
                                 fluidRow(
                                   tabBox(width = 12, title = "Projects",
-                                         tabPanel(title = "Select",
+                                         tabPanel(title = "My Projects",
                                                   fluidRow(
                                                     column(6, dataTableOutput(outputId = "projects_select_projectTable", width = "100%")),
                                                     column(6, wellPanel(htmlOutput(outputId = "project_select_wellpanel")))
                                                   )
                                          ),
                                          
-                                         tabPanel(title = "Create New",
+                                         tabPanel(title = "Create a New Project",
                                                   fluidRow(
                                                     column(width = 6, offset = 3,
-                                                           shiny_Dir_Button(id = "project_folder_select", 
-                                                                            label = "Choose Folder", 
-                                                                            title = "Please select a folder"),
+                                                           directoryInput('project_folder_select', label = 'Select Directory', value = '~'),
                                                            
                                                            selectInput(inputId = "project_source", 
                                                                        label = "Project Source:", 
-                                                                       choices = c("Kaggle", "Analytics Vidhya", "HackerEarth", "Fractal Analytics"), 
+                                                                       choices = c("Kaggle", "Analytics Vidhya", "HackerEarth"), 
                                                                        width = "100%"),
+                                                           
                                                            textInput(inputId = "project_name", label = "Project Name:", width = "100%"),
-                                                           textAreaInput(inputId = "project_description", label = "Project Description:", width = "100%"),
+                                                           
+                                                           textAreaInput(inputId = "project_description", label = "Project Description:", width = "100%", rows = 3),
+                                                           
                                                            actionButton(inputId = "createproject_button", label = "Create Project", width = "100%"))
-                                                  )),
-                                         
-                                         tabPanel(title = "Delete")
+                                                  ))
                                   )
                                 )
                                 
@@ -288,9 +288,25 @@ server <- function(input, output, session) {
   # ------------------------------------------------------- #
   # --------------- Sub_Tab = Create New ------------------ #
   # ------------------------------------------------------- #
-  shinyDirChoose(input = input, 
-                 id = 'project_folder_select', 
-                 root=c(root='~'))
+  observeEvent(
+    ignoreNULL = TRUE,
+    eventExpr = {
+      input$project_folder_select
+    },
+    handlerExpr = {
+      if (input$project_folder_select > 0) {
+        # condition prevents handler execution on initial app launch
+        
+        path = choose.dir(default = readDirectoryInput(session, 'project_folder_select'))
+        updateDirectoryInput(session, 'project_folder_select', value = path)
+      }
+    }
+  )
+  
+  output$project_folder_select = renderText({
+    readDirectoryInput(session, 'project_folder_select')
+  })
+  
   
   # Creating Project
   observeEvent(input$createproject_button, {
@@ -301,8 +317,7 @@ server <- function(input, output, session) {
     # =================== #
     # Getting Folder Path #
     # =================== #
-    project_folder <- unlist(input$project_folder_select$path)[-1]
-    project_folder <- paste0("~/", paste(project_folder, collapse = "/"))
+    project_folder <- readDirectoryInput(session, 'project_folder_select')
     
     # =================== #
     # Getting Folder Name #
@@ -319,12 +334,23 @@ server <- function(input, output, session) {
     # Creating Project Folder #
     # ======================= #
     if(create) {
-      # Generating Files and Folders 
+      # Generating Project Folders 
       dir.create(project_folder_path)  # Creating Project Folder
       dir.create(paste0(project_folder_path, "/Data"))  # Creating Data Folder within project folder
+      dir.create(paste0(project_folder_path, "/Tasks"))  # Creating Task Folder within project folder
+      dir.create(paste0(project_folder_path, "/Models"))  # Creating Model Folder within project folder
+      dir.create(paste0(project_folder_path, "/Output"))  # Creating Output Folder within project folder
       
-      # Writing Description to text file
-      write(x = input$project_description, file = paste0(project_folder_path, "/Description.txt"))
+      # ------------------------ #
+      # Generating Project Files #
+      # ------------------------ #
+      write(x = input$project_description, file = paste0(project_folder_path, "/Description.txt"))  # Writing Description to text file
+      
+      # Creating Task Tracker
+      x <- data.frame(ID = NA, Task_Name = NA, Response = NA, Description = NA, Date_Created = NA)
+      x <- x[-1, ]
+      write.csv(x, file = paste0(project_folder_path, "/Tasks/task_list.csv"), row.names = F)
+      
       
       # Storing data into project meta file
       create_proj_info <- file_project_info()
@@ -334,9 +360,10 @@ server <- function(input, output, session) {
                                            Path = project_folder_path, 
                                            Date_Created = Sys.Date()))
       write.csv(create_proj_info, "~/MLwR_project.csv", row.names = F)
-    
-        # Showing Notification for Creating Folder
+      
+      # Showing Notification for Creating Folder
       showNotification(paste(project_info$current_project_name, "Project created"), type = "message")
+      showNotification("Click on My Projects to select the project", type = "message")
     }
     
   })
@@ -425,10 +452,7 @@ server <- function(input, output, session) {
     if(!dir.exists(task_dir)) {
       dir.create(task_dir)
       
-      # Creating Task Tracker
-      x <- data.frame(ID = NA, Task_Name = NA, Response = NA, Description = NA, Date_Created = NA)
-      x <- x[-1, ]
-      write.csv(x, file = paste0(task_dir, "/task_list.csv"), row.names = F)
+     
     }
     
     # Crating Task

@@ -20,9 +20,9 @@ MLwR_start <- function() {
   }
 }
 
-# ============================= #
-# FUnction for creating Project Folder
-# ============================= #
+# ==================================== #
+# Function for creating Project Folder #
+# ==================================== #
 create_project_folder <- function(project_path = NULL, project_name = NULL, Desc = NULL) {
   # Creating Folders
   dir.create(project_path)
